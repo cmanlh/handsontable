@@ -1,9 +1,10 @@
 import BasePlugin from './../_base.js';
-import {addClass, hasClass, removeClass} from './../../helpers/dom/element';
+import Handsontable from './../../browser';
+import {addClass, hasClass, removeClass, outerHeight} from './../../helpers/dom/element';
 import {arrayEach, arrayMap} from './../../helpers/array';
 import {rangeEach} from './../../helpers/number';
 import {eventManager as eventManagerObject} from './../../eventManager';
-import {pageX, pageY} from './../../helpers/dom/event';
+import {pageX} from './../../helpers/dom/event';
 import {registerPlugin} from './../../plugins';
 
 const privatePool = new WeakMap();
@@ -116,7 +117,7 @@ class ManualColumnMove extends BasePlugin {
   }
 
   /**
-   * Update the plugin.
+   * Updates the plugin to use the latest options you have specified.
    */
   updatePlugin() {
     this.disablePlugin();
@@ -203,9 +204,10 @@ class ManualColumnMove extends BasePlugin {
    * @param {HTMLElement} TH Currently processed TH element.
    */
   setupHandlePosition(TH) {
+    this.currentTH = TH;
     let priv = privatePool.get(this);
     let col = this.hot.view.wt.wtTable.getCoords(TH).col; // getCoords returns WalkontableCellCoords
-    this.currentTH = TH;
+    let headerHeight = outerHeight(this.currentTH);
 
     if (col >= 0) { // if not row header
       let box = this.currentTH.getBoundingClientRect();
@@ -214,6 +216,7 @@ class ManualColumnMove extends BasePlugin {
       priv.startOffset = box.left;
       this.handleElement.style.top = box.top + 'px';
       this.handleElement.style.left = priv.startOffset + 'px';
+      this.handleElement.style.height = headerHeight + 'px';
       this.hot.rootElement.appendChild(this.handleElement);
     }
   }
@@ -241,13 +244,16 @@ class ManualColumnMove extends BasePlugin {
   setupGuidePosition() {
     let box = this.currentTH.getBoundingClientRect();
     let priv = privatePool.get(this);
+    let handleHeight = parseInt(outerHeight(this.handleElement), 10);
+    let handleBottomPosition = parseInt(this.handleElement.style.top, 10) + handleHeight;
+    let maximumVisibleElementHeight = parseInt(this.hot.view.maximumVisibleElementHeight(0), 10);
 
     addClass(this.handleElement, 'active');
     addClass(this.guideElement, 'active');
 
     this.guideElement.style.width = box.width + 'px';
-    this.guideElement.style.height = this.hot.view.maximumVisibleElementHeight(0) + 'px';
-    this.guideElement.style.top = this.handleElement.style.top;
+    this.guideElement.style.height = (maximumVisibleElementHeight - handleHeight) + 'px';
+    this.guideElement.style.top = handleBottomPosition + 'px';
     this.guideElement.style.left = priv.startOffset + 'px';
     this.hot.rootElement.appendChild(this.guideElement);
   }
@@ -300,7 +306,6 @@ class ManualColumnMove extends BasePlugin {
     let positionArr = this.columnPositions;
 
     if (positionArr.length < len) {
-
       rangeEach(positionArr.length, len - 1, (i) => {
         positionArr[i] = i;
       });
@@ -346,14 +351,12 @@ class ManualColumnMove extends BasePlugin {
    * Get the visible column index from the provided logical index.
    *
    * @param {Number} column Logical column index.
-   * @returns {Number} Visible column index.
+   * @returns {Number|undefined} Visible column index.
    */
   getVisibleColumnIndex(column) {
-    if (column > this.columnPositions.length - 1) {
-      this.createPositionData(column);
-    }
+    const position = this.columnPositions.indexOf(column);
 
-    return this.columnPositions.indexOf(column);
+    return position === -1 ? void 0 : position;
   }
 
   /**
@@ -464,9 +467,6 @@ class ManualColumnMove extends BasePlugin {
    * @returns {Number} Modified column index.
    */
   onModifyCol(col) {
-    if (typeof this.getVisibleColumnIndex(col) == -1) {
-      this.createPositionData(col + 1);
-    }
     return this.getLogicalColumnIndex(col);
   }
 
@@ -478,10 +478,6 @@ class ManualColumnMove extends BasePlugin {
    * @returns {Number} Unmodified column index.
    */
   onUnmodifyCol(col) {
-    if (typeof this.getVisibleColumnIndex(col) == -1) {
-      this.createPositionData(col + 1);
-    }
-
     return this.getVisibleColumnIndex(col);
   }
 
@@ -544,7 +540,7 @@ class ManualColumnMove extends BasePlugin {
     });
 
     if (index >= colpos.length) {
-      colpos.concat(addindx);
+      colpos = colpos.concat(addindx);
 
     } else {
       // We need to remap manualColPositions so it remains constant linear from 0->ncols

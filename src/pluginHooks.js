@@ -116,7 +116,7 @@ const REGISTERED_HOOKS = [
   'afterCopyLimit',
 
   /**
-   * Callback is fired after a new column was created.
+   * Callback is fired after a new column is created.
    *
    * @event Hooks#afterCreateCol
    * @param {Number} index Represents the index of first newly created column in the data source array.
@@ -125,7 +125,7 @@ const REGISTERED_HOOKS = [
   'afterCreateCol',
 
   /**
-   * Callback is fired after a new row was created.
+   * Callback is fired after a new row is created.
    *
    * @event Hooks#afterCreateRow
    * @param {Number} index Represents the index of first newly created row in the data source array.
@@ -134,7 +134,7 @@ const REGISTERED_HOOKS = [
   'afterCreateRow',
 
   /**
-   * Fired after the current cell was deselected.
+   * Fired after the current cell is deselected.
    *
    * @event Hooks#afterDeselect
    */
@@ -199,14 +199,14 @@ const REGISTERED_HOOKS = [
   'afterLoadData',
 
   /**
-   * Fired after a scroll event, which was identified as a momentum scroll (e.g. on an iPad).
+   * Fired after a scroll event, which is identified as a momentum scroll (e.g. on an iPad).
    *
    * @event Hooks#afterMomentumScroll
    */
   'afterMomentumScroll',
 
   /**
-   * Fired after a `mousedown` event was triggered on the cell corner (the drag handle).
+   * Fired after a `mousedown` event is triggered on the cell corner (the drag handle).
    *
    * @event Hooks#afterOnCellCornerMouseDown
    * @since 0.11
@@ -270,10 +270,24 @@ const REGISTERED_HOOKS = [
   'afterRender',
 
   /**
+   * Fired before starting rendering the cell.
+   *
+   * @event Hooks#beforeRenderer
+   * @since 0.24.2
+   * @param {Element} TD Currently rendered cell's TD element.
+   * @param {Number} row Row index.
+   * @param {Number} col Column index.
+   * @param {String|Number} prop Column property name or a column index, if datasource is an array of arrays.
+   * @param {String} value Value of the rendered cell.
+   * @param {Object} cellProperties Object containing the cell's properties.
+   */
+  'beforeRenderer',
+
+  /**
    * Fired after finishing rendering the cell (after the renderer finishes).
    *
    * @event Hooks#afterRenderer
-   * @since 0.11
+   * @since 0.11.0
    * @param {Element} TD Currently rendered cell's TD element.
    * @param {Number} row Row index.
    * @param {Number} col Column index.
@@ -300,7 +314,7 @@ const REGISTERED_HOOKS = [
   'afterScrollVertically',
 
   /**
-   * Callback fired after one or more cells were selected (e.g. during mouse move).
+   * Callback fired after one or more cells are selected (e.g. during mouse move).
    *
    * @event Hooks#afterSelection
    * @param {Number} r Selection start row index.
@@ -311,7 +325,7 @@ const REGISTERED_HOOKS = [
   'afterSelection',
 
   /**
-   * Callback fired after one or more cells were selected. The `p` argument represents the source object property name instead of the column number.
+   * Callback fired after one or more cells are selected. The `p` argument represents the source object property name instead of the column number.
    *
    * @event Hooks#afterSelectionByProp
    * @param {Number} r Selection start row index.
@@ -345,7 +359,7 @@ const REGISTERED_HOOKS = [
   'afterSelectionEndByProp',
 
   /**
-   * Called after cell meta was changed.
+   * Called after cell meta is changed.
    *
    * @event Hooks#afterSetCellMeta
    * @since 0.11.0
@@ -521,6 +535,17 @@ const REGISTERED_HOOKS = [
   'beforeOnCellMouseDown',
 
   /**
+   * Fired after the user moved cursor over a cell, but before all the calculations related with it.
+   *
+   * @event Hooks#beforeOnCellMouseOver
+   * @param {Event} event The `mouseover` event object.
+   * @param {WalkontableCellCoords} coords WalkontableCellCoords object containing the coordinates of the clicked cell.
+   * @param {Element} TD TD element.
+   * @param {Object} blockCalculations Contain keys 'row' and 'column' with boolean value.
+   */
+  'beforeOnCellMouseOver',
+
+  /**
    * Callback is fired when one or more columns are about to be removed.
    *
    * @event Hooks#beforeRemoveCol
@@ -548,6 +573,14 @@ const REGISTERED_HOOKS = [
    *                           rendering was triggered by scrolling or moving selection.
    */
   'beforeRender',
+
+  /**
+   * Callback fired before setting range is started.
+   *
+   * @event Hooks#beforeSetRangeStart
+   * @param {Array} coords WalkontableCellCoords array.
+   */
+  'beforeSetRangeStart',
 
   /**
    * Callback fired before setting range is ended.
@@ -838,6 +871,34 @@ const REGISTERED_HOOKS = [
    * @returns {Number} Returns new width which will be applied to the column element.
    */
   'beforeStretchingColumnWidth',
+
+  /**
+   * Fired before applying [filtering]{@link http://docs.handsontable.com/pro/demo-filtering.html}.
+   *
+   * @pro
+   * @event Hooks#beforeFilter
+   * @param {Array} formulasStack An array of objects with added formulas.
+   * @returns {Boolean} If hook returns `false` value then filtering won't be applied on the UI side (server-side filtering).
+   */
+  'beforeFilter',
+
+  /**
+   * Fired after applying [filtering]{@link http://docs.handsontable.com/pro/demo-filtering.html}.
+   *
+   * @pro
+   * @event Hooks#afterFilter
+   * @param {Array} formulasStack An array of objects with added formulas.
+   */
+  'afterFilter',
+
+  /**
+   * Used to modify the column header height.
+   *
+   * @event Hooks#modifyColumnHeaderHeight
+   * @since 0.25.0
+   * @param {Number} col Column index.
+   */
+  'modifyColumnHeaderHeight',
 ];
 
 import {arrayEach} from './helpers/array';
@@ -852,7 +913,7 @@ class Hooks {
   }
 
   /**
-   * Returns new object with empty handlers related to every registered hook name.
+   * Returns a new object with empty handlers related to every registered hook name.
    *
    * @returns {Object} The empty bucket object.
    *
@@ -878,7 +939,7 @@ class Hooks {
   }
 
   /**
-   * Get hook bucket based on context object or if argument is `undefined`, get the global hook bucket.
+   * Get hook bucket based on the context of the object or if argument is `undefined`, get the global hook bucket.
    *
    * @param {Object} [context=null] A Handsontable instance.
    * @returns {Object} Returns a global or Handsontable instance bucket.
@@ -896,11 +957,11 @@ class Hooks {
   }
 
   /**
-   * Adds listener (globally or locally) to a specified hook name.
+   * Adds a listener (globally or locally) to a specified hook name.
    * If the `context` parameter is provided, the hook will be added only to the instance it references.
    * Otherwise, the callback will be used everytime the hook fires on any Handsontable instance.
    * You can provide an array of callback functions as the `callback` argument, this way they will all be fired
-   * once the hook was triggered.
+   * once the hook is triggered.
    *
    * @see Core#addHook
    * @param {String} key Hook name.
@@ -946,7 +1007,7 @@ class Hooks {
   }
 
   /**
-   * Adds a listener to specified hook. After the hook runs this listener will be automatically removed from the bucket.
+   * Adds a listener to a specified hook. After the hook runs this listener will be automatically removed from the bucket.
    *
    * @see Core#addHookOnce
    * @param {String} key Hook/Event name.
@@ -1133,7 +1194,7 @@ class Hooks {
   }
 
   /**
-   * Returns boolean information if a hook by such name has been registered.
+   * Returns a boolean depending on if a hook by such name has been registered.
    *
    * @param key {String} Hook name.
    * @returns {Boolean} `true` for success, `false` otherwise.
@@ -1177,7 +1238,3 @@ class Hooks {
 }
 
 export {Hooks};
-
-// temp for tests only!
-Handsontable.utils = Handsontable.utils || {};
-Handsontable.utils.Hooks = Hooks;

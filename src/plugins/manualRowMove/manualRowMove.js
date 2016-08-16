@@ -1,9 +1,10 @@
 import BasePlugin from './../_base.js';
-import {addClass, hasClass, removeClass} from './../../helpers/dom/element';
+import Handsontable from './../../browser';
+import {addClass, hasClass, removeClass, outerWidth} from './../../helpers/dom/element';
 import {arrayEach, arrayMap} from './../../helpers/array';
 import {rangeEach} from './../../helpers/number';
 import {eventManager as eventManagerObject} from './../../eventManager';
-import {pageX, pageY} from './../../helpers/dom/event';
+import {pageY} from './../../helpers/dom/event';
 import {registerPlugin} from './../../plugins';
 
 const privatePool = new WeakMap();
@@ -112,7 +113,7 @@ class ManualRowMove extends BasePlugin {
   }
 
   /**
-   * Update the plugin.
+   * Updates the plugin to use the latest options you have specified.
    */
   updatePlugin() {
     this.disablePlugin();
@@ -199,9 +200,10 @@ class ManualRowMove extends BasePlugin {
    * @param {HTMLElement} TH Currently processed TH element.
    */
   setupHandlePosition(TH) {
+    this.currentTH = TH;
     let priv = privatePool.get(this);
     let row = this.hot.view.wt.wtTable.getCoords(TH).row; // getCoords returns WalkontableCellCoords
-    this.currentTH = TH;
+    let headerWidth = outerWidth(this.currentTH);
 
     if (row >= 0) { // if not row header
       let box = this.currentTH.getBoundingClientRect();
@@ -210,6 +212,7 @@ class ManualRowMove extends BasePlugin {
       priv.startOffset = box.top;
       this.handleElement.style.top = priv.startOffset + 'px';
       this.handleElement.style.left = box.left + 'px';
+      this.handleElement.style.width = headerWidth + 'px';
       this.hot.rootElement.appendChild(this.handleElement);
     }
   }
@@ -237,14 +240,17 @@ class ManualRowMove extends BasePlugin {
   setupGuidePosition() {
     let box = this.currentTH.getBoundingClientRect();
     let priv = privatePool.get(this);
+    let handleWidth = parseInt(outerWidth(this.handleElement), 10);
+    let handleRightPosition = parseInt(this.handleElement.style.left, 10) + handleWidth;
+    let maximumVisibleElementWidth = parseInt(this.hot.view.maximumVisibleElementWidth(0), 10);
 
     addClass(this.handleElement, 'active');
     addClass(this.guideElement, 'active');
 
     this.guideElement.style.height = box.height + 'px';
-    this.guideElement.style.width = this.hot.view.maximumVisibleElementWidth(0) + 'px';
+    this.guideElement.style.width = (maximumVisibleElementWidth - handleWidth) + 'px';
     this.guideElement.style.top = priv.startOffset + 'px';
-    this.guideElement.style.left = this.handleElement.style.left;
+    this.guideElement.style.left = handleRightPosition + 'px';
     this.hot.rootElement.appendChild(this.guideElement);
   }
 
@@ -340,14 +346,12 @@ class ManualRowMove extends BasePlugin {
    * Get the visible row index from the provided logical index.
    *
    * @param {Number} row Logical row index.
-   * @returns {Number} Visible row index.
+   * @returns {Number|undefined} Visible row index.
    */
   getVisibleRowIndex(row) {
-    if (row > this.rowPositions.length - 1) {
-      this.createPositionData(row);
-    }
+    const position = this.rowPositions.indexOf(row);
 
-    return this.rowPositions.indexOf(row);
+    return position === -1 ? void 0 : position;
   }
 
   /**
@@ -454,10 +458,6 @@ class ManualRowMove extends BasePlugin {
    * @returns {Number} Modified row index.
    */
   onModifyRow(row) {
-    if (typeof this.getVisibleRowIndex(row) === 'undefined') {
-      this.createPositionData(row + 1);
-    }
-
     return this.getLogicalRowIndex(row);
   }
 
@@ -520,7 +520,7 @@ class ManualRowMove extends BasePlugin {
     }
 
     if (index >= rowpos.length) {
-      rowpos.concat(addindx);
+      rowpos = rowpos.concat(addindx);
 
     } else {
       // We need to remap rowPositions so it remains constant linear from 0->nrows

@@ -1,19 +1,38 @@
 
-window.Handsontable = function Handsontable(rootElement, userSettings) {
+function Handsontable(rootElement, userSettings) {
   let instance = new Handsontable.Core(rootElement, userSettings || {});
 
   instance.init();
 
   return instance;
-};
+}
 
-import './shims/classes';
+module.exports = Handsontable;
+
+// Only for tests! (temporary solution)
+Handsontable.utils = {};
+
+import './shims/runtime';
 import 'es6collections';
 import {Hooks} from './pluginHooks';
+
+// Export internal libraries for possibility for adding new languages
+import numbro from 'numbro';
+import moment from 'moment';
+
+if (typeof window === 'object') {
+  if (typeof window.numbro === 'undefined') {
+    window.numbro = numbro;
+  }
+  if (typeof window.moment === 'undefined') {
+    window.moment = moment;
+  }
+}
 
 if (!Handsontable.hooks) {
   Handsontable.hooks = new Hooks();
 }
+Handsontable.utils.Hooks = Hooks;
 
 import './core';
 import './renderers/_cellDecorator';
@@ -22,6 +41,7 @@ import './../plugins/jqueryHandsontable';
 import * as arrayHelpers from './helpers/array';
 import * as browserHelpers from './helpers/browser';
 import * as dataHelpers from './helpers/data';
+import * as dateHelpers from './helpers/date';
 import * as featureHelpers from './helpers/feature';
 import * as functionHelpers from './helpers/function';
 import * as mixedHelpers from './helpers/mixed';
@@ -37,6 +57,7 @@ const HELPERS = [
   arrayHelpers,
   browserHelpers,
   dataHelpers,
+  dateHelpers,
   featureHelpers,
   functionHelpers,
   mixedHelpers,

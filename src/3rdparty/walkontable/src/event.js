@@ -1,9 +1,9 @@
-
 import {
-  closest,
+  closestDown,
   hasClass,
   isChildOf,
 } from './../../../helpers/dom/element';
+import {isMobileBrowser} from './../../../helpers/browser';
 import {eventManager as eventManagerObject} from './../../../eventManager';
 
 /**
@@ -120,7 +120,7 @@ function WalkontableEvent(instance) {
 
     if (that.instance.hasSetting('onCellMouseOver')) {
       table = that.instance.wtTable.TABLE;
-      td = closest(event.realTarget, ['TD', 'TH'], table);
+      td = closestDown(event.realTarget, ['TD', 'TH'], table);
       mainWOT = that.instance.cloneSource || that.instance;
 
       if (td && td !== mainWOT.lastMouseOver && isChildOf(td, table)) {
@@ -183,7 +183,7 @@ function WalkontableEvent(instance) {
   eventManager.addEventListener(this.instance.wtTable.holder, 'mouseup', onMouseUp);
 
   // check if full HOT instance, or detached WOT AND run on mobile device
-  if (this.instance.wtTable.holder.parentNode.parentNode && Handsontable.mobileBrowser && !that.instance.wtTable.isWorkingOnClone()) {
+  if (this.instance.wtTable.holder.parentNode.parentNode && isMobileBrowser() && !that.instance.wtTable.isWorkingOnClone()) {
     var classSelector = '.' + this.instance.wtTable.holder.parentNode.className.split(' ').join('.');
 
     eventManager.addEventListener(this.instance.wtTable.holder, 'touchstart', function(event) {
@@ -237,11 +237,9 @@ function WalkontableEvent(instance) {
 WalkontableEvent.prototype.parentCell = function(elem) {
   var cell = {};
   var TABLE = this.instance.wtTable.TABLE;
-  var TD = closest(elem, ['TD', 'TH'], TABLE);
-  var referenceTABLE = closest(TD, ['TABLE']);
+  var TD = closestDown(elem, ['TD', 'TH'], TABLE);
 
-  // Don't return cell when TD is not belong to the right table element (situations when table cell contain another hot instance)
-  if (TD && isChildOf(TD, TABLE) && referenceTABLE == TABLE) {
+  if (TD) {
     cell.coords = this.instance.wtTable.getCoords(TD);
     cell.TD = TD;
 

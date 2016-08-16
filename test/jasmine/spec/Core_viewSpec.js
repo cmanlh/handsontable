@@ -77,6 +77,55 @@ describe('Core_view', function () {
     expect(getSelected()).toEqual([3, 0, 3, 0]); //test whether it is selected
   });
 
+  it('should scroll viewport without cell selection', function() {
+    this.$container[0].style.width = '400px';
+
+    var hot1 = handsontable({
+      data: Handsontable.helper.createSpreadsheetData(20, 20),
+      height: 100
+    });
+
+    hot1.scrollViewportTo(10, 10);
+
+    var wtHolder = this.$container.find('.ht_master .wtHolder');
+
+    expect(wtHolder[0].scrollTop).toEqual(230);
+    expect(wtHolder[0].scrollLeft).toEqual(500);
+
+  });
+
+  it('should not throw error while scrolling viewport to 0, 0 (empty data)', function() {
+    this.$container[0].style.width = '400px';
+
+    var hot1 = handsontable({
+      data: [],
+      height: 100
+    });
+
+    expect(function() {
+      hot1.view.scrollViewport({row: 0, col: 0});
+    }).not.toThrow();
+  });
+
+  it('should throw error while scrolling viewport below 0 (empty data)', function() {
+    this.$container[0].style.width = '400px';
+
+    var hot1 = handsontable({
+      data: [],
+      height: 100
+    });
+
+    expect(function() {
+      hot1.view.scrollViewport({row: -1, col: 0});
+    }).toThrow();
+    expect(function() {
+      hot1.view.scrollViewport({row: 0, col: -1});
+    }).toThrow();
+    expect(function() {
+      hot1.view.scrollViewport({row: -1, col: -1});
+    }).toThrow();
+  });
+
   xit('should scroll viewport, respecting fixed rows', function () {
     this.$container[0].style.width = '200px';
     this.$container[0].style.height = '100px';
@@ -207,7 +256,6 @@ describe('Core_view', function () {
     expect(leftClone.find('tr:eq(1) td:eq(0)').html()).toEqual("A2");
     expect(leftClone.find('tr:eq(2) td:eq(0)').html()).toEqual("A3");
 
-
   });
 
   it('should enable to change fixedColumnsLeft with updateSettings', function () {
@@ -251,8 +299,6 @@ describe('Core_view', function () {
     expect(leftClone.find('tr:eq(1) td:eq(1)').html()).toEqual("B2");
     expect(leftClone.find('tr:eq(2) td:eq(0)').html()).toEqual("A3");
     expect(leftClone.find('tr:eq(2) td:eq(1)').html()).toEqual("B3");
-
-
 
   });
 
@@ -386,7 +432,30 @@ describe('Core_view', function () {
     waitsFor(function(){
       return afterRenderCallback.calls.length > 0;
     }, 'afterRender event to fire', 1000);
+  });
 
+  it("should fire afterRender event after table physically rendered", function () {
+    this.$container[0].style.width = '400px';
+    this.$container[0].style.height = '60px';
+    this.$container[0].style.overflow = 'hidden';
+
+    var hot = handsontable({
+      data: Handsontable.helper.createSpreadsheetData(20, 3)
+    });
+
+    hot.addHook('afterRender', function() {
+      hot.view.wt.wtTable.holder.style.overflow = 'scroll';
+      hot.view.wt.wtTable.holder.style.width = '220px';
+    });
+
+    this.$container.find(".ht_master .wtHolder").first().scrollTop(1000);
+
+    waits(100);
+    runs(function() {
+      // after afterRender hook triggered element style shouldn't changed
+      expect(hot.view.wt.wtTable.holder.style.overflow).toBe('scroll');
+      expect(hot.view.wt.wtTable.holder.style.width).toBe('220px');
+    })
   });
 
   //TODO fix these tests - https://github.com/handsontable/handsontable/issues/1559
@@ -551,14 +620,56 @@ describe('Core_view', function () {
       });
 
       expect(Handsontable.Dom.outerWidth(leftClone.find("tbody tr:nth-child(1) td:nth-child(2)")[0])).toEqual(80);
+    });
 
+    it("should set the columns width correctly after changes made during updateSettings when columns is a function", function () {
+      var hot = handsontable({
+        startCols: 7,
+        startRows: 2,
+        fixedColumnsLeft: 2,
+        columns: function(column) {
+          var colMeta = {};
+
+          if (column === 0) {
+            colMeta.width = 50
+          } else if (column === 1) {
+            colMeta.width = 80
+          } else if (column === 2) {
+            colMeta.width = 110
+          } else if (column === 3) {
+            colMeta.width = 140
+          } else if ([4, 5, 6].indexOf(column) > -1) {
+            colMeta.width = 30
+          } else {
+            colMeta = null;
+          }
+
+          return colMeta;
+        }
+      });
+
+      var leftClone = this.$container.find('.ht_clone_left');
+
+      expect(Handsontable.Dom.outerWidth(leftClone.find("tbody tr:nth-child(1) td:nth-child(2)")[0])).toEqual(80);
+
+      hot.updateSettings({
+        manualColumnMove: [2, 0, 1],
+        fixedColumnsLeft: 1
+      });
+
+      expect(leftClone.find("tbody tr:nth-child(1) td:nth-child(2)")[0]).toBe(undefined);
+
+      hot.updateSettings({
+        manualColumnMove: false,
+        fixedColumnsLeft: 2
+      });
+
+      expect(Handsontable.Dom.outerWidth(leftClone.find("tbody tr:nth-child(1) td:nth-child(2)")[0])).toEqual(80);
     });
   });
 
   describe('stretchH', function () {
-
     it("should stretch all visible columns with the ratio appropriate to the container's width", function() {
-
       this.$container[0].style.width = '300px';
 
       var hot = handsontable({
@@ -614,9 +725,8 @@ describe('Core_view', function () {
       expect(masterTH[0].offsetWidth).toEqual(50);
       expect(overlayTH[0].offsetWidth).toEqual(50);
 
-
-      expect(masterTH[1].offsetWidth).toBeInArray([86, 87, 88]);
-      expect(overlayTH[1].offsetWidth).toBeInArray([86, 87, 88]); //if you get 90, it means it is calculated before scrollbars were applied
+      expect(masterTH[1].offsetWidth).toBeInArray([86, 87, 88, 90]);
+      expect(overlayTH[1].offsetWidth).toBeInArray([86, 87, 88, 90]); //if you get 90, it means it is calculated before scrollbars were applied, or show scroll on scrolling is enabled
 
       expect(masterTH[2].offsetWidth).toEqual(overlayTH[2].offsetWidth);
       expect(masterTH[3].offsetWidth).toEqual(overlayTH[3].offsetWidth);

@@ -1,26 +1,22 @@
-
+import Handsontable from './../../browser';
 import {
   addClass,
   empty,
   fastInnerHTML,
-  getComputedStyle,
   getScrollbarWidth,
-  getWindowScrollLeft,
-  getWindowScrollTop,
-  hasClass,
   isChildOf,
   removeClass,
 } from './../../helpers/dom/element';
-import {arrayEach, arrayReduce} from './../../helpers/array';
+import {arrayEach, arrayFilter, arrayReduce} from './../../helpers/array';
 import {Cursor} from './cursor';
 import {EventManager} from './../../eventManager';
-import {extend, isObject, objectEach, mixin} from './../../helpers/object';
+import {mixin} from './../../helpers/object';
 import {debounce} from './../../helpers/function';
-import {isSeparator, isDisabled, isSelectionDisabled, hasSubMenu, normalizeSelection} from './utils';
+import {filterSeparators, hasSubMenu, isDisabled, isItemHidden, isSeparator, isSelectionDisabled, normalizeSelection} from './utils';
 import {KEY_CODES} from './../../helpers/unicode';
 import {localHooks} from './../../mixins/localHooks';
-import {SEPARATOR, predefinedItems} from './predefinedItems';
-import {stopPropagation, stopImmediatePropagation, pageX, pageY} from './../../helpers/dom/event';
+import {SEPARATOR} from './predefinedItems';
+import {stopImmediatePropagation} from './../../helpers/dom/event';
 
 /**
  * @class Menu
@@ -34,7 +30,7 @@ class Menu {
       name: null,
       className: '',
       keepInViewport: true,
-      standalone: false,
+      standalone: false
     };
     this.eventManager = new EventManager(this);
     this.container = this.createContainer(this.options.name);
@@ -47,7 +43,7 @@ class Menu {
       above: 0,
       below: 0,
       left: 0,
-      right: 0,
+      right: 0
     };
     this._afterScrollCallback = null;
 
@@ -100,8 +96,12 @@ class Menu {
 
     const delayedOpenSubMenu = debounce((row) => this.openSubMenu(row), 300);
 
+    let filteredItems = arrayFilter(this.menuItems, (item) => isItemHidden(item, this.hot));
+
+    filteredItems = filterSeparators(filteredItems, SEPARATOR);
+
     let settings = {
-      data: this.menuItems,
+      data: filteredItems,
       colHeaders: false,
       colWidths: [200],
       autoRowSize: false,
@@ -177,7 +177,7 @@ class Menu {
       parent: this,
       name: dataItem.name,
       className: this.options.className,
-      keepInViewport: true,
+      keepInViewport: true
     });
     subMenu.setMenuItems(dataItem.submenu.items);
     subMenu.open();
@@ -255,16 +255,22 @@ class Menu {
     }
     const selRange = this.hot.getSelectedRange();
     const normalizedSelection = selRange ? normalizeSelection(selRange) : {};
+    let autoClose = true;
+
+    // Don't close context menu if item is disabled or it has submenu
+    if (selectedItem.disabled === true ||
+        (typeof selectedItem.disabled === 'function' && selectedItem.disabled.call(this.hot) === true) ||
+        selectedItem.submenu) {
+      autoClose = false;
+    }
 
     this.runLocalHooks('executeCommand', selectedItem.key, normalizedSelection, event);
 
     if (this.isSubMenu()) {
       this.parentMenu.runLocalHooks('executeCommand', selectedItem.key, normalizedSelection, event);
     }
-    // Don't close context menu if item is disabled or it has submenu
-    if (!(selectedItem.disabled === true ||
-        typeof selectedItem.disabled === 'function' && selectedItem.disabled.call(this.hot) === true ||
-        selectedItem.submenu)) {
+
+    if (autoClose) {
       this.close(true);
     }
   }
@@ -439,13 +445,9 @@ class Menu {
     let itemIsDisabled = (item) => {
       return item.disabled === true || (typeof item.disabled == 'function' && item.disabled.call(this.hot) === true);
     };
-    let itemIsHidden = (item) => {
-      return typeof item.hidden == 'function' && item.hidden.call(this.hot) === true;
-    };
     let itemIsSelectionDisabled = (item) => {
       return item.disableSelection;
     };
-    let isHidden = itemIsHidden(item);
 
     if (typeof value === 'function') {
       value = value.call(this.hot);
@@ -457,19 +459,14 @@ class Menu {
     if (itemIsSeparator(item)) {
       addClass(TD, 'htSeparator');
 
-    } else if (!isHidden && typeof item.renderer === 'function') {
+    } else if (typeof item.renderer === 'function') {
       addClass(TD, 'htCustomMenuRenderer');
       TD.appendChild(item.renderer(hot, wrapper, row, col, prop, value));
 
     } else {
       fastInnerHTML(wrapper, value);
     }
-    if (isHidden) {
-      if (TD.parentNode) {
-        addClass(TD.parentNode, 'htHidden');
-      }
-
-    } else if (itemIsDisabled(item)) {
+    if (itemIsDisabled(item)) {
       addClass(TD, 'htDisabled');
       this.eventManager.addEventListener(TD, 'mouseenter', () => hot.deselectCell());
 
@@ -483,7 +480,7 @@ class Menu {
       if (itemIsSelectionDisabled(item)) {
         this.eventManager.addEventListener(TD, 'mouseenter', () => hot.deselectCell());
       } else {
-        this.eventManager.addEventListener(TD, 'mouseenter', () => hot.selectCell(row, col, void 0, void 0, void 0, false));
+        this.eventManager.addEventListener(TD, 'mouseenter', () => hot.selectCell(row, col, void 0, void 0, false, false));
       }
     } else {
       removeClass(TD, 'htSubmenu');
@@ -492,7 +489,7 @@ class Menu {
       if (itemIsSelectionDisabled(item)) {
         this.eventManager.addEventListener(TD, 'mouseenter', () => hot.deselectCell());
       } else {
-        this.eventManager.addEventListener(TD, 'mouseenter', () => hot.selectCell(row, col, void 0, void 0, void 0, false));
+        this.eventManager.addEventListener(TD, 'mouseenter', () => hot.selectCell(row, col, void 0, void 0, false, false));
       }
     }
   }
